@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Chat Fullscreen Chat</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+body, html {
+      width: 90%;          /* Take most of the screen width */
+    max-width: 1200px;   /* Optional max-width */
+    height: 80%;         /* Take most of the screen height */
+    max-height: 900px;   /* Optional max-height */
+    background: #1e1e1e;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 50px rgba(0,0,0,0.7);
+    overflow: hidden;
+    position: relative;
+    margin: auto;
+}
+
+.chat-wrapper {
+    width: 80%;
+    max-width: 1000px;
+    height: 80%;
+    background: #1e1e1e;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 50px rgba(0,0,0,0.7);
+    overflow: hidden;
+    position: relative;
+}
+
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.messages {
+     flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    scroll-behavior: smooth;
+}
+
+.message {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    max-width: 70%;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.message .bubble {
+    padding: 12px 18px;
+    border-radius: 25px;
+    word-break: break-word;
+    white-space: pre-wrap;
+    position: relative;
+}
+
+.message.user .bubble {
+    background: #fff;
+    color: #000;
+    border-bottom-right-radius: 5px;
+}
+
+.message.bot .bubble {
+    background: #0d6efd;
+    color: #fff;
+    border-bottom-left-radius: 5px;
+    overflow: hidden;
+}
+
+/* Timestamp */
+.timestamp {
+    font-size: 0.75rem;
+    color: #aaa;
+    margin-top: 5px;
+    text-align: right;
+}
+
+/* Reactions */
+.reactions {
+    display: flex;
+    gap: 5px;
+    margin-top: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    opacity: 0.8;
+}
+.reactions span:hover {
+    transform: scale(1.2);
+    opacity: 1;
+}
+
+/* Input area */
+.input-group {
+    padding: 15px;
+    background: #1b1b1b;
+    display: flex;
+    gap: 10px;
+}
+.form-control {
+    flex: 1;
+    border-radius: 25px;
+    padding: 12px 18px;
+}
+
+.form-control::placeholder {
+    color: #aaa;
+}
+.form-control:focus {
+    outline: none;
+    box-shadow: 0 0 15px #0d6efd;
+}
+.btn-send {
+    border-radius: 25px;
+    background: #0d6efd;
+    border: none;
+    padding: 12px 18px;
+    color: #fff;
+}
+
+/* Glow around chat wrapper when bot responds */
+@keyframes glowMove {
+    0% { box-shadow: 0 0 15px rgba(13,110,253,0.5); }
+    25% { box-shadow: 10px 10px 20px rgba(13,110,253,0.6); }
+    50% { box-shadow: -10px 10px 25px rgba(13,110,253,0.7); }
+    75% { box-shadow: 10px -10px 20px rgba(13,110,253,0.6); }
+    100% { box-shadow: 0 0 15px rgba(13,110,253,0.5); }
+}
+.chat-wrapper.glow {
+    animation: glowMove 4s linear infinite;
+    border-radius: 20px;
+}
+
+/* Scrollbar */
+.messages::-webkit-scrollbar {
+    width: 8px;
+}
+.messages::-webkit-scrollbar-track { background: #1e1e1e; }
+.messages::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
+
+.icon { font-size: 1.5rem; flex-shrink: 0; }
+
+</style>
+</head>
+<body>
+
+<div class="chat-wrapper" id="chatWrapper">
+    <div class="chat-container">
+        <div class="messages" id="messages"></div>
+        <div class="input-group">
+            <input type="text" class="form-control" id="userInput" placeholder="Type your message...">
+            <button class="btn btn-send" id="sendBtn"><i class="bi bi-send-fill"></i></button>
+        </div>
+    </div>
+</div>
+
+<!-- Typing sound -->
+<audio id="typingSound">
+    <source src="data:audio/mp3;base64,//uQxAA..." type="audio/mpeg">
+</audio>
+
+<script>
+const messagesDiv = document.getElementById("messages");
+const input = document.getElementById("userInput");
+const sendBtn = document.getElementById("sendBtn");
+const chatWrapper = document.getElementById("chatWrapper");
+const typingSound = document.getElementById("typingSound");
+
+chatWrapper.style.display = "flex"; // Already open on page load
+
+let username = "";
+
+// Format timestamp
+function formatTime() {
+    const now = new Date();
+    return now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
+}
+
+// Add message
+function addMessage(sender, text, time) {
+    const msgDiv = document.createElement("div");
+    msgDiv.classList.add("message", sender);
+
+    const icon = document.createElement("i");
+    icon.classList.add("icon", sender === "user" ? "bi-person-fill" : "bi-robot");
+
+    const bubble = document.createElement("div");
+    bubble.classList.add("bubble");
+    bubble.textContent = text;
+
+    const timestamp = document.createElement("div");
+    timestamp.classList.add("timestamp");
+    timestamp.textContent = time;
+    bubble.appendChild(timestamp);
+
+    const reactions = document.createElement("div");
+    reactions.classList.add("reactions");
+    reactions.innerHTML = '<span>👍</span><span>❤️</span><span>👀</span>';
+    reactions.querySelectorAll('span').forEach(r => r.addEventListener('click', () => alert(`You reacted: ${r.textContent}`)));
+    bubble.appendChild(reactions);
+
+    msgDiv.append(icon, bubble);
+    messagesDiv.appendChild(msgDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Apply glow animation on chat wrapper
+function applyGlow() {
+    chatWrapper.classList.add("glow");
+    setTimeout(() => chatWrapper.classList.remove("glow"), 4000);
+}
+
+// Send message
+async function sendMessage() {
+    let message = input.value.trim();
+    if(!message) return;
+
+    if(!username) {
+        username = message;
+        addMessage("bot", `Hello ${username}! How can I assist you today?`, formatTime());
+        input.value = "";
+        return;
+    }
+
+    addMessage("user", message, formatTime());
+    input.value = "";
+
+    const botTyping = document.createElement("div");
+    botTyping.classList.add("message","bot");
+    botTyping.innerHTML = `<i class="icon bi-robot"></i><div class="bubble">Typing...</div>`;
+    messagesDiv.appendChild(botTyping);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    typingSound.play().catch(e=>console.log("Sound blocked", e));
+
+    try {
+        const response = await fetch("/api/chat/", {
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                "X-CSRFToken": getCookie("csrftoken")
+            },
+            body: JSON.stringify({message})
+        });
+
+        const data = await response.json();
+        const botMessage = data.message || data.response || "Sorry, no response.";
+
+        botTyping.querySelector(".bubble").textContent = "";
+        for(let char of botMessage){
+            botTyping.querySelector(".bubble").textContent += char;
+            await new Promise(r=>setTimeout(r,20));
+        }
+
+        const timestamp = document.createElement("div");
+        timestamp.classList.add("timestamp");
+        timestamp.textContent = formatTime();
+        botTyping.querySelector(".bubble").appendChild(timestamp);
+
+        applyGlow();
+
+    } catch(err) {
+        console.error(err);
+        botTyping.querySelector(".bubble").textContent = "Error: Unable to fetch response.";
+    }
+}
+
+input.addEventListener("keydown", e => { if(e.key==="Enter") sendMessage(); });
+sendBtn.addEventListener("click", sendMessage);
+
+function getCookie(name){
+    let cookieValue = null;
+    if(document.cookie && document.cookie!==""){
+        const cookies = document.cookie.split(";");
+        for(let cookie of cookies){
+            cookie = cookie.trim();
+            if(cookie.startsWith(name+"=")){
+                cookieValue = decodeURIComponent(cookie.substring(name.length+1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initial greeting
+addMessage("bot","Welcome! What's your name?", formatTime());
+
+</script>
+</body>
+</html>
