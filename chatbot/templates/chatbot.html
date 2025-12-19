@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Chat</title>
+
+    <!-- Bootstrap CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    >
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            background: #000;
+            color: #fff;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #222;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .chat-body {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 14px;
+            line-height: 1.5;
+            animation: fadeIn 0.25s ease;
+            word-wrap: break-word;
+        }
+
+        .user {
+            align-self: flex-end;
+            background: #fff;
+            color: #000;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot {
+            align-self: flex-start;
+            background: #111;
+            border: 1px solid #222;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-footer {
+            padding: 16px;
+            border-top: 1px solid #222;
+            background: #000;
+        }
+
+        textarea {
+            width: 100%;
+            background: #000;
+            color: #fff;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 12px 14px;
+            outline: none;
+            resize: none;
+            transition: border 0.2s ease;
+        }
+
+        textarea:focus {
+            border-color: #fff;
+        }
+
+        .send-btn {
+            margin-top: 10px;
+            width: 100%;
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+            opacity: 0.8;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(3px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Scrollbar (subtle) */
+        .chat-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-body::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #777;
+            text-align: center;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-header">
+    🤖 AI CHAT
+</div>
+
+<div class="chat-body" id="messages"></div>
+
+<div class="chat-footer">
+    <textarea
+        id="userInput"
+        rows="2"
+        placeholder="Type your message..."
+    ></textarea>
+
+    <button class="send-btn" onclick="sendMessage()">Send</button>
+    <div class="hint">Press Enter to send • Shift + Enter for new line</div>
+</div>
+
+<script>
+const messagesDiv = document.getElementById("messages");
+const input = document.getElementById("userInput");
+
+// Enter to send
+input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+async function sendMessage() {
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage("user", message);
+    input.value = "";
+
+    const response = await fetch("/api/chat/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken")
+        },
+        body: JSON.stringify({ message })
+    });
+
+    const data = await response.json();
+    addMessage("bot", data.message);
+}
+
+function addMessage(sender, text) {
+    const bubble = document.createElement("div");
+    bubble.className = `bubble ${sender}`;
+    bubble.textContent = text;
+
+    messagesDiv.appendChild(bubble);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// CSRF helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+        const cookies = document.cookie.split(";");
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + "=")) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+</body>
+</html>
