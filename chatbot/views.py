@@ -15,6 +15,9 @@ from django.utils.decorators import method_decorator
 def chatbot_ui(request):
     return render(request, "chatbot.html")
 
+def chat_ui(request):
+    return render(request, "chatwindow.html")
+
 @method_decorator(csrf_exempt, name='dispatch')
 class ChatView(APIView):
     def post(self, request):

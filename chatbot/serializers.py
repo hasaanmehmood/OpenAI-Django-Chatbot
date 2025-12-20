@@ -21,3 +21,6 @@ class ConversationSerializer(serializers.ModelSerializer):
 class ChatRequestSerializer(serializers.Serializer):
     message = serializers.CharField()
     session_id = serializers.CharField(required=False)
+
+
+
